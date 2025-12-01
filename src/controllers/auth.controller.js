@@ -87,8 +87,10 @@ const authController = {
       // send confirmation email (if SMTP configured)
       try {
         const emailService = require('../services/email.service');
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
         const confirmLink = `${clientUrl.replace(/\/$/, '')}/confirm-email?token=${email_confirm_token}`;
+        // Log the confirmation link so we can verify which URL is used in emails
+        console.info('Email confirmation link:', confirmLink);
         const subject = 'Confirm your email address';
         const html = `<p>Hi ${doc.full_name || ''},</p>
           <p>Thanks for signing up. Please confirm your email by clicking the link below:</p>
@@ -140,8 +142,10 @@ const authController = {
 
       try {
         const emailService = require('../services/email.service');
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetLink = `${clientUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
+        // Log the reset link so we can verify which URL is used in emails
+        console.info('Password reset link:', resetLink);
         const subject = 'Password reset request';
         const html = `<p>Hi ${profile.full_name || ''},</p>
           <p>We received a request to reset your password. Click the link below to set a new password (valid for 1 hour):</p>
