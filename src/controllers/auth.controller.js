@@ -1,0 +1,195 @@
+const { formatResponse } = require("../utils/helpers");
+
+const authController = {
+  async healthCheck(req, res) {
+    res.json(
+      formatResponse(true, {
+        status: "OK",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  },
+  async localLogin(req, res) {
+    const { email, password } = req.body || {};
+    const logger = require('../utils/logger');
+    logger.info('localLogin attempt', { body: req.body });
+    if (!email || !password) {
+      return res.status(400).json(formatResponse(false, null, 'Email and password required'));
+    }
+
+    try {
+      const profilesService = require('../services/profiles.service');
+      const profile = await profilesService.getProfileByEmail(email);
+      if (!profile || !profile.password_hash) {
+        return res.status(401).json(formatResponse(false, null, 'Invalid email or password'));
+      }
+
+      // If profile has an email_confirmed flag and it's false, block login
+      if (Object.prototype.hasOwnProperty.call(profile, 'email_confirmed') && profile.email_confirmed === false) {
+        return res.status(403).json(formatResponse(false, null, 'Email not confirmed'));
+      }
+
+      // password_hash format: scrypt$<salt>$<derived>
+      const [scheme, salt, derived] = profile.password_hash.split('$');
+      if (scheme !== 'scrypt' || !salt || !derived) {
+        return res.status(500).json(formatResponse(false, null, 'Invalid password storage format'));
+      }
+
+      const crypto = require('crypto');
+      const computed = crypto.scryptSync(password, salt, 64).toString('hex');
+      if (computed !== derived) {
+        return res.status(401).json(formatResponse(false, null, 'Invalid email or password'));
+      }
+
+      // Success — return dev token for local development
+      const token = `dev:${profile._id || profile.id}`;
+      // sanitize profile before returning
+      const safeProfile = { ...profile };
+      if (safeProfile.password_hash) delete safeProfile.password_hash;
+      if (safeProfile.password_reset_token) delete safeProfile.password_reset_token;
+      if (safeProfile.email_confirm_token) delete safeProfile.email_confirm_token;
+      if (safeProfile.password_reset_expires) delete safeProfile.password_reset_expires;
+      return res.json(formatResponse(true, { token, profile: safeProfile }));
+    } catch (e) {
+      console.error('localLogin error', e);
+      return res.status(500).json(formatResponse(false, null, 'Login failed'));
+    }
+  },
+  async register(req, res) {
+    const { email, password, full_name, phone } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json(formatResponse(false, null, 'Email and password required'));
+    }
+
+    try {
+      const profilesService = require('../services/profiles.service');
+      const crypto = require('crypto');
+
+      // simple scrypt hash format used by admin script
+      const salt = crypto.randomBytes(16).toString('hex');
+      const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+      const password_hash = `scrypt$${salt}$${derived}`;
+
+      const userId = crypto.randomUUID();
+      // email confirmation token
+      const email_confirm_token = crypto.randomBytes(20).toString('hex');
+
+      const doc = await profilesService.createProfile(userId, {
+        email,
+        full_name: full_name || null,
+        phone: phone || null,
+        is_admin: false,
+        password_hash,
+        email_confirm_token,
+        email_confirmed: false,
+      });
+
+      // send confirmation email (if SMTP configured)
+      try {
+        const emailService = require('../services/email.service');
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const confirmLink = `${clientUrl.replace(/\/$/, '')}/confirm-email?token=${email_confirm_token}`;
+        const subject = 'Confirm your email address';
+        const html = `<p>Hi ${doc.full_name || ''},</p>
+          <p>Thanks for signing up. Please confirm your email by clicking the link below:</p>
+          <p><a href="${confirmLink}">Confirm email</a></p>
+          <p>If you didn't create an account, you can ignore this message.</p>`;
+        await emailService.sendEmail(email, subject, html);
+      } catch (e) {
+        // Log but don't fail registration if email sending fails
+        console.error('Failed to send confirmation email', e);
+      }
+
+      // Do not return an active token on registration; require email confirmation
+      const safeProfile = { ...doc };
+      if (safeProfile.password_hash) delete safeProfile.password_hash;
+      if (safeProfile.email_confirm_token) delete safeProfile.email_confirm_token;
+      return res.json(formatResponse(true, { message: 'Registration successful. Please check your email to confirm your account.' }));
+    } catch (e) {
+      console.error('register error', e);
+      return res.status(500).json(formatResponse(false, null, 'Registration failed'));
+    }
+  },
+  async confirmEmail(req, res) {
+    try {
+      const token = req.query.token || req.body?.token;
+      if (!token) return res.status(400).json(formatResponse(false, null, 'Token required'));
+      const profilesService = require('../services/profiles.service');
+      const profile = await profilesService.getProfileByConfirmToken(token);
+      if (!profile) return res.status(400).json(formatResponse(false, null, 'Invalid or expired token'));
+      await profilesService.updateProfile(profile._id || profile.id, { email_confirmed: true, email_confirm_token: null });
+      return res.json(formatResponse(true, { message: 'Email confirmed' }));
+    } catch (e) {
+      console.error('confirmEmail error', e);
+      return res.status(500).json(formatResponse(false, null, 'Confirmation failed'));
+    }
+  },
+  async requestPasswordReset(req, res) {
+    try {
+      const { email } = req.body || {};
+      if (!email) return res.status(400).json(formatResponse(false, null, 'Email required'));
+      const profilesService = require('../services/profiles.service');
+      const profile = await profilesService.getProfileByEmail(email);
+      // Always respond 200 to avoid user enumeration
+      if (!profile) return res.json(formatResponse(true, { message: 'If that email exists we sent a reset link' }));
+
+      const crypto = require('crypto');
+      const token = crypto.randomBytes(20).toString('hex');
+      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await profilesService.updateProfile(profile._id || profile.id, { password_reset_token: token, password_reset_expires: expires });
+
+      try {
+        const emailService = require('../services/email.service');
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const resetLink = `${clientUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
+        const subject = 'Password reset request';
+        const html = `<p>Hi ${profile.full_name || ''},</p>
+          <p>We received a request to reset your password. Click the link below to set a new password (valid for 1 hour):</p>
+          <p><a href="${resetLink}">Reset password</a></p>
+          <p>If you didn't request this, you can safely ignore this email.</p>`;
+        await emailService.sendEmail(profile.email, subject, html);
+      } catch (e) {
+        console.error('Failed to send password reset email', e);
+      }
+
+      return res.json(formatResponse(true, { message: 'If that email exists we sent a reset link' }));
+    } catch (e) {
+      console.error('requestPasswordReset error', e);
+      return res.status(500).json(formatResponse(false, null, 'Failed to request password reset'));
+    }
+  },
+  async resetPassword(req, res) {
+    try {
+      const { token, password } = req.body || {};
+      if (!token || !password) return res.status(400).json(formatResponse(false, null, 'Token and password required'));
+      const profilesService = require('../services/profiles.service');
+      const profile = await profilesService.getProfileByResetToken(token);
+      if (!profile) return res.status(400).json(formatResponse(false, null, 'Invalid or expired token'));
+      const expires = new Date(profile.password_reset_expires || null);
+      if (!expires || expires < new Date()) return res.status(400).json(formatResponse(false, null, 'Invalid or expired token'));
+
+      const crypto = require('crypto');
+      const salt = crypto.randomBytes(16).toString('hex');
+      const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+      const password_hash = `scrypt$${salt}$${derived}`;
+
+      await profilesService.updateProfile(profile._id || profile.id, { password_hash, password_reset_token: null, password_reset_expires: null });
+      return res.json(formatResponse(true, { message: 'Password updated' }));
+    } catch (e) {
+      console.error('resetPassword error', e);
+      return res.status(500).json(formatResponse(false, null, 'Failed to reset password'));
+    }
+  },
+  async mode(req, res) {
+    try {
+      const config = require('../config');
+      const usingMongo = Boolean(config.MONGODB_URI);
+      return res.json({ success: true, data: { db: usingMongo ? 'mongo' : 'postgres', allowLocalLogin: true } });
+    } catch (e) {
+      console.error('mode endpoint error', e);
+      return res.status(500).json({ success: false, message: 'Unable to determine mode' });
+    }
+  },
+};
+
+module.exports = authController;

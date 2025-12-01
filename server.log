@@ -1,0 +1,8 @@
+[2025-11-28 18:04:56.987 +0200] [32mINFO[39m (74877): [36m✅ ImageKit service initialized[39m
+[2025-11-28 18:04:57.010 +0200] [32mINFO[39m (74877): [36m🚀 Starting Court Booking Backend...[39m
+[2025-11-28 18:04:57.036 +0200] [32mINFO[39m (74877): [36m✅ MongoDB connected[39m
+[2025-11-28 18:04:57.036 +0200] [32mINFO[39m (74877): [36m✅ MongoDB connected successfully[39m
+[2025-11-28 18:04:57.037 +0200] [32mINFO[39m (74877): [36m✅ Server running on port 3001[39m
+[2025-11-28 18:04:57.037 +0200] [32mINFO[39m (74877): [36m📊 Environment: development[39m
+[2025-11-28 18:04:57.037 +0200] [32mINFO[39m (74877): [36m🌐 Health check: http://localhost:3001/api/auth/health[39m
+[2025-11-28 18:04:58.582 +0200] [32mINFO[39m (74877): [36m✅ Email service connected successfully[39m

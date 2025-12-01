@@ -1,0 +1,25 @@
+const express = require("express");
+const authRoutes = require("./auth");
+const profilesRoutes = require("./profiles");
+const courtsRoutes = require("./courts");
+const bookingsRoutes = require("./booking");
+const messagesRoutes = require("./messages");
+const galleryRoutes = require("./gallery");
+const adminRoutes = require("./admin");
+
+const router = express.Router();
+
+// Public routes
+router.use("/auth", authRoutes);
+router.use("/courts", courtsRoutes.publicRouter);
+router.use("/gallery", galleryRoutes.publicRouter);
+router.use("/messages", messagesRoutes.publicRouter);
+
+// Protected routes
+router.use("/profiles", profilesRoutes);
+router.use("/bookings", bookingsRoutes);
+
+// Admin routes
+router.use("/admin", adminRoutes);
+
+module.exports = router;
