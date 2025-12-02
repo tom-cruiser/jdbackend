@@ -27,7 +27,21 @@ class BookingsService {
         end_time: { $gt: bookingData.start_time },
       });
 
-      if (timeOverlap) throw new Error('Time slot not available');
+      if (timeOverlap) {
+        try {
+          // Log a concise conflict message to assist debugging in hosted logs
+          console.info('Booking conflict detected', {
+            conflict_id: timeOverlap._id || timeOverlap.id,
+            court_id: timeOverlap.court_id,
+            booking_date: timeOverlap.booking_date,
+            start_time: timeOverlap.start_time,
+            end_time: timeOverlap.end_time,
+          });
+        } catch (e) {
+          // ignore logging errors
+        }
+        throw new Error('Time slot not available');
+      }
 
       const booking = {
         _id: require('crypto').randomUUID(),
