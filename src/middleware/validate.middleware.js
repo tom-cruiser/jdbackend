@@ -13,6 +13,9 @@ const schemas = {
       .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
       .required(),
     notes: Joi.string().max(500).allow("", null),
+    // Optional coach information (frontend may include these fields)
+    coach_id: Joi.string().uuid().allow(null),
+    coach_name: Joi.string().max(100).allow("", null),
   }),
 
   message: Joi.object({
