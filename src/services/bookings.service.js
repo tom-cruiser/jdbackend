@@ -43,6 +43,30 @@ class BookingsService {
         throw new Error('Time slot not available');
       }
 
+      // If the user selected a coach, ensure the coach is available (not already booked)
+      if (bookingData.coach_id) {
+        const coachOverlap = await bookings.findOne({
+          coach_id: bookingData.coach_id,
+          booking_date: bookingDateStr,
+          status: { $ne: 'cancelled' },
+          start_time: { $lt: bookingData.end_time },
+          end_time: { $gt: bookingData.start_time },
+        });
+
+        if (coachOverlap) {
+          try {
+            console.info('Coach conflict detected', {
+              conflict_id: coachOverlap._id || coachOverlap.id,
+              coach_id: coachOverlap.coach_id,
+              booking_date: coachOverlap.booking_date,
+              start_time: coachOverlap.start_time,
+              end_time: coachOverlap.end_time,
+            });
+          } catch (e) {}
+          throw new Error('Coach not available');
+        }
+      }
+
       const booking = {
         _id: require('crypto').randomUUID(),
         user_id: userId,
