@@ -12,10 +12,16 @@ class BookingsService {
       await mongo.connect();
       const { bookings, profiles, courts } = mongo.getCollections();
 
+      // Normalize booking_date to a YYYY-MM-DD string to avoid mismatched
+      // types (Date vs string) causing incorrect queries.
+      const bookingDateStr = bookingData.booking_date instanceof Date
+        ? bookingData.booking_date.toISOString().slice(0, 10)
+        : String(bookingData.booking_date);
+
       // Check availability: overlapping times. Use a simple range query on times.
       const timeOverlap = await bookings.findOne({
         court_id: bookingData.court_id,
-        booking_date: bookingData.booking_date,
+        booking_date: bookingDateStr,
         status: { $ne: 'cancelled' },
         start_time: { $lt: bookingData.end_time },
         end_time: { $gt: bookingData.start_time },
@@ -27,7 +33,7 @@ class BookingsService {
         _id: require('crypto').randomUUID(),
         user_id: userId,
         court_id: bookingData.court_id,
-        booking_date: bookingData.booking_date,
+        booking_date: bookingDateStr,
         start_time: bookingData.start_time,
         end_time: bookingData.end_time,
         notes: bookingData.notes,
@@ -76,9 +82,11 @@ class BookingsService {
     if (process.env.MONGODB_URI) {
       await mongo.connect();
       const { bookings } = mongo.getCollections();
+      // Ensure we query with the normalized YYYY-MM-DD string
+      const dateStr = date instanceof Date ? date.toISOString().slice(0, 10) : String(date);
       const docs = await bookings.find({
         court_id: courtId,
-        booking_date: date,
+        booking_date: dateStr,
         status: { $ne: 'cancelled' }
       }).project({ start_time: 1, end_time: 1, _id: 1, user_id: 1 }).toArray();
       return docs;
@@ -119,6 +127,11 @@ class BookingsService {
       if (!isAdmin) {
         const ownership = await bookings.findOne({ _id: id });
         if (!ownership || ownership.user_id !== userId) throw new Error('Not authorized');
+      }
+
+      // Normalize booking_date in updates if provided
+      if (updates.booking_date instanceof Date) {
+        updates.booking_date = updates.booking_date.toISOString().slice(0, 10);
       }
 
       const updateDoc = {
