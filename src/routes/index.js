@@ -6,6 +6,7 @@ const bookingsRoutes = require("./booking");
 const messagesRoutes = require("./messages");
 const galleryRoutes = require("./gallery");
 const adminRoutes = require("./admin");
+const debugRoutes = require("./debug");
 
 const router = express.Router();
 
@@ -21,5 +22,8 @@ router.use("/bookings", bookingsRoutes);
 
 // Admin routes
 router.use("/admin", adminRoutes);
+
+// Debug routes (public) - small utility endpoints for admins
+router.use('/debug', debugRoutes);
 
 module.exports = router;
