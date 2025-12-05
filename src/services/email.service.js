@@ -1,37 +1,47 @@
+const sgMail = require("@sendgrid/mail");
 const nodemailer = require("nodemailer");
 const config = require("../config");
 const logger = require("../utils/logger");
 
 class EmailService {
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: config.SMTP_HOST,
-      port: config.SMTP_PORT,
-      secure: config.SMTP_SECURE,
-      // Enable debug and a short connection timeout to surface errors quickly
-      logger: true,
-      debug: true,
-      connectionTimeout: 10000,
-      auth: {
-        user: config.SMTP_USER,
-        pass: config.SMTP_PASS,
-      },
-    });
-    this.verifyConnection();
+    this.useSendGrid = !!config.SENDGRID_API_KEY;
+    
+    if (this.useSendGrid) {
+      sgMail.setApiKey(config.SENDGRID_API_KEY);
+      logger.info("📧 Email service: SendGrid configured");
+    } else {
+      // SMTP fallback for local development
+      this.transporter = nodemailer.createTransport({
+        host: config.SMTP_HOST,
+        port: config.SMTP_PORT,
+        secure: config.SMTP_SECURE,
+        logger: true,
+        debug: true,
+        connectionTimeout: 10000,
+        auth: {
+          user: config.SMTP_USER,
+          pass: config.SMTP_PASS,
+        },
+      });
+      logger.info("📧 Email service: SMTP fallback configured");
+      this.verifyConnection();
+    }
   }
 
   async verifyConnection() {
+    if (this.useSendGrid) {
+      // SendGrid doesn't require verification; it will fail on first send if key is invalid
+      return;
+    }
     try {
       await this.transporter.verify();
       logger.info("✅ Email service connected successfully");
     } catch (error) {
-      // Log a concise, inspectable error object (message + stack).
       logger.error("❌ Email service connection failed:", {
         message: error && error.message ? error.message : String(error),
         stack: error && error.stack ? error.stack : undefined,
       });
-
-      // Also log the (non-sensitive) transport configuration to help debugging.
       try {
         logger.info("Email transport config", {
           host: config.SMTP_HOST,
@@ -47,17 +57,29 @@ class EmailService {
 
   async sendEmail(to, subject, html, text = "") {
     try {
-      const mailOptions = {
-        from: `Court Booking System <${config.FROM_EMAIL}>`,
-        to,
-        subject,
-        text,
-        html,
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
-      logger.info(`📧 Email sent to ${to}: ${subject}`);
-      return { success: true, messageId: result.messageId };
+      if (this.useSendGrid) {
+        const msg = {
+          to,
+          from: config.FROM_EMAIL,
+          subject,
+          text,
+          html,
+        };
+        await sgMail.send(msg);
+        logger.info(`📧 Email sent via SendGrid to ${to}: ${subject}`);
+        return { success: true, messageId: "sendgrid" };
+      } else {
+        const mailOptions = {
+          from: `Court Booking System <${config.FROM_EMAIL}>`,
+          to,
+          subject,
+          text,
+          html,
+        };
+        const result = await this.transporter.sendMail(mailOptions);
+        logger.info(`📧 Email sent via SMTP to ${to}: ${subject}`);
+        return { success: true, messageId: result.messageId };
+      }
     } catch (error) {
       logger.error("❌ Failed to send email:", error);
       return { success: false, error: error.message };

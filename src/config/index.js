@@ -17,6 +17,9 @@ const config = {
       : process.env.NODE_ENV === "development" && !!process.env.MONGODB_URI,
 
   // Email configuration
+  // SendGrid API (preferred on PaaS like Render)
+  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
+  // SMTP fallback (for local dev)
   SMTP_HOST: process.env.SMTP_HOST,
   SMTP_PORT: parseInt(process.env.SMTP_PORT) || 587,
   SMTP_SECURE: process.env.SMTP_SECURE === "true",
