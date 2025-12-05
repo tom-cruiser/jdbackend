@@ -21,25 +21,23 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    const allowedOrigins = [
-      "http://localhost:5173",
-      "https://pdel-front.onrender.com",
-      // Common production hostnames for your site
-      "https://www.bujumburapadel.club",
-      "https://bujumburapadel.club"
-    ];
-
-    // Add CLIENT_URL from environment if set
+    // Use `CLIENT_URL` env var as the single source of truth for allowed origins.
+    // `CLIENT_URL` can be a single URL or a comma-separated list.
     if (process.env.CLIENT_URL) {
       const clientUrls = process.env.CLIENT_URL.split(",").map(url => url.trim());
-      allowedOrigins.push(...clientUrls);
+      if (clientUrls.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+        return callback(null, true);
+      }
     }
 
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Fallback: during development allow everything to make local testing easy
+    if (process.env.NODE_ENV === 'development') return callback(null, true);
+
+    // If we reach here the origin was not found in CLIENT_URL
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
