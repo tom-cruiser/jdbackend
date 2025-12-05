@@ -18,6 +18,13 @@ app.use(compression());
 // FIXED CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
+    // Log the incoming origin for debugging CORS issues.
+    try {
+      logger.debug({ origin }, "CORS origin check");
+    } catch (e) {
+      // logger may not be available in some contexts; swallow logging errors
+    }
+
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
@@ -26,6 +33,9 @@ const corsOptions = {
     if (process.env.CLIENT_URL) {
       const clientUrls = process.env.CLIENT_URL.split(",").map(url => url.trim());
       if (clientUrls.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+        try {
+          logger.debug({ origin, clientUrls, accepted }, "CORS clientUrl match");
+        } catch (e) {}
         return callback(null, true);
       }
     }
@@ -37,6 +47,9 @@ const corsOptions = {
     if (process.env.NODE_ENV === 'development') return callback(null, true);
 
     // If we reach here the origin was not found in CLIENT_URL
+    try {
+      logger.warn({ origin }, "CORS denied origin");
+    } catch (e) {}
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
