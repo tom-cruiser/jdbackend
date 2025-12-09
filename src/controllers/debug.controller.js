@@ -1,4 +1,3 @@
-const emailService = require('../services/email.service');
 const config = require('../config');
 
 const debugController = {

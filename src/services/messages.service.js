@@ -1,4 +1,3 @@
-const emailService = require("./email.service");
 const mongo = require("../db/mongo");
 const config = require('../config');
 let pool;
