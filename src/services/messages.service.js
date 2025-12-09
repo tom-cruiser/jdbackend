@@ -22,9 +22,11 @@ class MessagesService {
       await messages.insertOne(doc);
       const message = doc;
 
-      // Send emails
-      emailService.sendContactNotification(message);
-      emailService.sendContactConfirmation(message);
+      // Email sending disabled: log instead of sending.
+      try {
+        console.info('Email disabled: would notify admin of contact message', message._id || message.id);
+        console.info('Email disabled: would send confirmation to', message.email);
+      } catch (e) {}
 
       return message;
     }
@@ -38,9 +40,11 @@ class MessagesService {
 
     const message = result.rows[0];
 
-    // Send emails
-    emailService.sendContactNotification(message);
-    emailService.sendContactConfirmation(message);
+    // Email sending disabled: log instead of sending.
+    try {
+      console.info('Email disabled: would notify admin of contact message (SQL)', message.id);
+      console.info('Email disabled: would send confirmation to', message.email);
+    } catch (e) {}
 
     return message;
   }

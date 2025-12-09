@@ -95,8 +95,14 @@ class BookingsService {
     booking.court_name = court?.name;
 
     if (user) {
-      emailService.sendBookingConfirmation(booking, user);
-      emailService.sendBookingNotificationToAdmin(booking, user);
+      // Email sending is disabled in production environments (e.g. Render).
+      // Log the intended email actions for operator visibility instead of sending.
+      try {
+        console.info('Email disabled: would send booking confirmation to', user.email, 'for booking', booking._id || booking.id);
+        console.info('Email disabled: would notify admin about booking', booking._id || booking.id);
+      } catch (e) {
+        // ignore logging errors
+      }
     }
 
     return booking;
