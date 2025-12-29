@@ -21,13 +21,20 @@ class BookingsService {
       .then(docs => docs[0] || null);
 
     if (lastBooking) {
-      const lastBookingDate = new Date(lastBooking.booking_date);
-      const currentBookingDate = new Date(bookingDateStr);
+      // Ensure both dates are properly formatted as YYYY-MM-DD strings for comparison
+      const lastBookingDateStr = lastBooking.booking_date instanceof Date
+        ? lastBooking.booking_date.toISOString().slice(0, 10)
+        : String(lastBooking.booking_date);
+      
+      const lastBookingDate = new Date(lastBookingDateStr + 'T00:00:00Z');
+      const currentBookingDate = new Date(bookingDateStr + 'T00:00:00Z');
+      
+      // Calculate difference in days
       const daysDifference = Math.floor((currentBookingDate - lastBookingDate) / (1000 * 60 * 60 * 24));
 
       if (daysDifference < 2) {
         const nextAvailableDate = new Date(lastBookingDate);
-        nextAvailableDate.setDate(nextAvailableDate.getDate() + 2);
+        nextAvailableDate.setUTCDate(nextAvailableDate.getUTCDate() + 2);
         throw new Error(`You must wait at least 2 days after your last booking. Next available booking date: ${nextAvailableDate.toISOString().slice(0, 10)}`);
       }
     }
