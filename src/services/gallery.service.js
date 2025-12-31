@@ -11,7 +11,9 @@ class GalleryService {
     if (process.env.MONGODB_URI) {
       await mongo.connect();
       const { gallery_images } = mongo.getCollections();
-      return gallery_images.find({}).sort({ created_at: -1 }).toArray();
+      const images = await gallery_images.find({}).sort({ created_at: -1 }).toArray();
+      // Map _id to id for frontend compatibility
+      return images.map(img => ({ ...img, id: img._id }));
     }
 
     const result = await pool.query(
@@ -33,7 +35,8 @@ class GalleryService {
         created_at: new Date(),
       };
       await gallery_images.insertOne(doc);
-      return doc;
+      // Return with id field for frontend compatibility
+      return { ...doc, id: doc._id };
     }
 
     const result = await pool.query(
@@ -72,7 +75,11 @@ class GalleryService {
     if (process.env.MONGODB_URI) {
       await mongo.connect();
       const { gallery_images } = mongo.getCollections();
+      // The id passed from frontend is actually the _id in MongoDB
       const res = await gallery_images.findOneAndDelete({ _id: id });
+      if (res.value) {
+        return { ...res.value, id: res.value._id };
+      }
       return res.value;
     }
 
