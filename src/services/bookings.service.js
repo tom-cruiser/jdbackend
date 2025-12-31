@@ -6,6 +6,11 @@ class BookingsService {
     await mongo.connect();
     const { bookings, profiles, courts } = mongo.getCollections();
 
+    // Validate membership status
+    if (!bookingData.membership_status || !['member', 'non_member'].includes(bookingData.membership_status)) {
+      throw new Error('Membership status is required and must be either "member" or "non_member"');
+    }
+
     // Normalize booking_date to a YYYY-MM-DD string to avoid mismatched
     // types (Date vs string) causing incorrect queries.
     const bookingDateStr = bookingData.booking_date instanceof Date
@@ -109,6 +114,7 @@ class BookingsService {
       notes: bookingData.notes,
       coach_id: bookingData.coach_id || null,
       coach_name: bookingData.coach_name || null,
+      membership_status: bookingData.membership_status,
       status: 'confirmed',
       created_at: new Date(),
       updated_at: new Date(),
