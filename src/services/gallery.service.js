@@ -77,19 +77,34 @@ class GalleryService {
       const { gallery_images } = mongo.getCollections();
       
       console.log('[GalleryService] Attempting to delete image with id:', id);
+      console.log('[GalleryService] ID type:', typeof id);
+      
+      // First, check if the image exists
+      const existing = await gallery_images.findOne({ _id: id });
+      console.log('[GalleryService] Existing image found:', existing ? 'YES' : 'NO');
+      
+      if (!existing) {
+        console.log('[GalleryService] Image does not exist in database');
+        return null;
+      }
       
       // The id passed from frontend is actually the _id in MongoDB
-      // MongoDB _id can be either string or ObjectId, try both
       const res = await gallery_images.findOneAndDelete({ _id: id });
       
-      console.log('[GalleryService] Delete result:', res);
+      console.log('[GalleryService] Delete operation completed');
+      console.log('[GalleryService] Delete result.ok:', res.ok);
+      console.log('[GalleryService] Delete result.value:', res.value ? 'FOUND' : 'NULL');
       
       if (res.value) {
         console.log('[GalleryService] Successfully deleted image');
+        
+        // TODO: Also delete from ImageKit if needed
+        // Extract fileId from image_url and delete from ImageKit
+        
         return { ...res.value, id: res.value._id };
       }
       
-      console.log('[GalleryService] Image not found for id:', id);
+      console.log('[GalleryService] Delete failed - no value returned');
       return null;
     }
 
