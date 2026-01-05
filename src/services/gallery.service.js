@@ -13,7 +13,10 @@ class GalleryService {
       const { gallery_images } = mongo.getCollections();
       const images = await gallery_images.find({}).sort({ created_at: -1 }).toArray();
       // Map _id to id for frontend compatibility
-      return images.map(img => ({ ...img, id: img._id }));
+      return images.map(img => {
+        const { _id, ...rest } = img;
+        return { ...rest, id: _id, _id };
+      });
     }
 
     const result = await pool.query(
@@ -31,12 +34,14 @@ class GalleryService {
         title: imageData.title,
         description: imageData.description,
         image_url: imageData.image_url,
+        imagekit_file_id: imageData.imagekit_file_id, // Store fileId for later deletion
         uploaded_by: imageData.uploaded_by,
         created_at: new Date(),
       };
       await gallery_images.insertOne(doc);
       // Return with id field for frontend compatibility
-      return { ...doc, id: doc._id };
+      const { _id, ...rest } = doc;
+      return { ...rest, id: _id, _id };
     }
 
     const result = await pool.query(
@@ -67,6 +72,7 @@ class GalleryService {
     return this.createImage({
       ...imageData,
       image_url: uploadResult.data.url,
+      imagekit_file_id: uploadResult.data.fileId, // Store the fileId
       uploaded_by: uploadedBy,
     });
   }
@@ -104,12 +110,27 @@ class GalleryService {
       console.log('[GalleryService] Delete result.value:', res.value ? 'FOUND' : 'NULL');
       
       if (res.value) {
-        console.log('[GalleryService] Successfully deleted image');
+        console.log('[GalleryService] Successfully deleted image from database');
         
-        // TODO: Also delete from ImageKit if needed
-        // Extract fileId from image_url and delete from ImageKit
+        // Delete from ImageKit if fileId is stored
+        if (res.value.imagekit_file_id) {
+          try {
+            const imagekitService = require('./imagekit.service');
+            const deleteResult = await imagekitService.deleteImage(res.value.imagekit_file_id);
+            if (deleteResult.success) {
+              console.log('[GalleryService] Successfully deleted from ImageKit');
+            } else {
+              console.error('[GalleryService] Failed to delete from ImageKit:', deleteResult.error);
+            }
+          } catch (err) {
+            console.error('[GalleryService] Error deleting from ImageKit:', err);
+          }
+        } else {
+          console.log('[GalleryService] No ImageKit fileId stored, skipping cloud deletion');
+        }
         
-        return { ...res.value, id: res.value._id };
+        const { _id, ...rest } = res.value;
+        return { ...rest, id: _id, _id };
       }
       
       console.log('[GalleryService] Delete failed - no value returned');
