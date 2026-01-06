@@ -5,7 +5,10 @@ const { formatResponse } = require("../utils/helpers");
 const schemas = {
   booking: Joi.object({
     court_id: Joi.string().required(),
-    booking_date: Joi.date().iso().required(),
+    booking_date: Joi.alternatives().try(
+      Joi.date().iso(),
+      Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/)
+    ).required(),
     start_time: Joi.string()
       .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
       .required(),
@@ -52,6 +55,13 @@ const validate = (schema) => {
   return (req, res, next) => {
     const { error } = schema.validate(req.body);
     if (error) {
+      // Log validation errors for debugging
+      console.error('Validation error:', {
+        message: error.details[0].message,
+        field: error.details[0].path,
+        value: error.details[0].context?.value,
+        body: req.body
+      });
       return res
         .status(400)
         .json(
