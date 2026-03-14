@@ -1,4 +1,8 @@
-require("dotenv").config();
+const path = require("path");
+const dotenv = require("dotenv");
+
+// Always resolve .env from backend root so `node index.js` works from backend/src.
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const config = {
   NODE_ENV: process.env.NODE_ENV || "development",
