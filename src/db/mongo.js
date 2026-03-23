@@ -56,6 +56,7 @@ function getCollections() {
     gallery_images: db.collection('gallery_images'),
     chats: db.collection('chats'),
     chat_messages: db.collection('chat_messages'),
+    app_notes: db.collection('app_notes'),
   };
 }
 

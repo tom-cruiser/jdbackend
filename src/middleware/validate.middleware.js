@@ -49,6 +49,12 @@ const schemas = {
     title: Joi.string().min(1).max(100).required(),
     description: Joi.string().max(500).allow("", null),
   }),
+
+  appNote: Joi.object({
+    title: Joi.string().max(120).allow("", null),
+    content: Joi.string().min(1).max(1500).required(),
+    is_active: Joi.boolean().default(true),
+  }),
 };
 
 const validate = (schema) => {

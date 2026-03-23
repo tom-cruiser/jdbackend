@@ -6,6 +6,7 @@ const coachesRoutes = require("./coaches");
 const bookingsRoutes = require("./booking");
 const messagesRoutes = require("./messages");
 const galleryRoutes = require("./gallery");
+const publicNoteRoutes = require("./publicNote");
 const adminRoutes = require("./admin");
 const debugRoutes = require("./debug");
 const chatRoutes = require("./chat");
@@ -18,6 +19,7 @@ router.use("/courts", courtsRoutes.publicRouter);
 router.use('/coaches', coachesRoutes.publicRouter);
 router.use("/gallery", galleryRoutes.publicRouter);
 router.use("/messages", messagesRoutes.publicRouter);
+router.use('/note', publicNoteRoutes.publicRouter);
 
 // Protected routes
 router.use("/profiles", profilesRoutes);

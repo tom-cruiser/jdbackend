@@ -20,6 +20,9 @@ router.use("/messages", require("./messages").adminRouter);
 // Gallery management
 router.use("/gallery", require("./gallery").adminRouter);
 
+// Public app note management
+router.use('/note', require('./publicNote').adminRouter);
+
 // Profiles management
 router.get("/profiles", profilesController.getAllProfiles);
 
