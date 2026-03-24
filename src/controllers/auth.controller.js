@@ -1,5 +1,71 @@
 const { formatResponse } = require("../utils/helpers");
 
+function deriveScrypt(password, salt) {
+  const crypto = require("crypto");
+  return crypto.scryptSync(password, salt, 64).toString("hex");
+}
+
+function createScryptHash(password) {
+  const crypto = require("crypto");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derived = deriveScrypt(password, salt);
+  return `scrypt$${salt}$${derived}`;
+}
+
+function timingSafeHexEquals(a, b) {
+  const crypto = require("crypto");
+  const left = Buffer.from(a || "", "hex");
+  const right = Buffer.from(b || "", "hex");
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+async function verifyPassword(profile, password, profilesService) {
+  const stored = profile && profile.password_hash;
+  if (typeof stored !== "string" || !stored) return false;
+
+  // Preferred format: scrypt$<salt>$<derived-hex>
+  if (stored.startsWith("scrypt$")) {
+    const [scheme, salt, derived] = stored.split("$");
+    if (scheme !== "scrypt" || !salt || !derived) return false;
+
+    const computed = deriveScrypt(password, salt);
+    return timingSafeHexEquals(computed, derived);
+  }
+
+  // Backward compatibility: bcrypt hashes stored as "$2..." or "bcrypt$..."
+  if (
+    stored.startsWith("$2a$") ||
+    stored.startsWith("$2b$") ||
+    stored.startsWith("$2y$") ||
+    stored.startsWith("bcrypt$")
+  ) {
+    try {
+      const bcrypt = require("bcryptjs");
+      const normalizedHash = stored.startsWith("bcrypt$")
+        ? stored.substring(7)
+        : stored;
+      return await bcrypt.compare(password, normalizedHash);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Legacy plaintext fallback: allow one-time migration to scrypt.
+  if (stored === password) {
+    try {
+      await profilesService.updateProfile(profile._id || profile.id, {
+        password_hash: createScryptHash(password),
+      });
+    } catch (e) {
+      // Continue login even if migration write fails.
+    }
+    return true;
+  }
+
+  return false;
+}
+
 const authController = {
   async healthCheck(req, res) {
     res.json(
@@ -11,7 +77,9 @@ const authController = {
   },
 
   async localLogin(req, res) {
-    const { email, password } = req.body || {};
+    const body = req.body || {};
+    const email = typeof body.email === "string" ? body.email.trim() : "";
+    const password = typeof body.password === "string" ? body.password : "";
     const logger = require("../utils/logger");
     logger.info("localLogin attempt", { body: req.body });
 
@@ -23,24 +91,15 @@ const authController = {
 
     try {
       const profilesService = require("../services/profiles.service");
-      const profile = await profilesService.getProfileByEmail(email);
-      if (!profile || !profile.password_hash) {
+      const profile = await profilesService.getProfileByEmail(email.toLowerCase());
+      if (!profile) {
         return res
           .status(401)
           .json(formatResponse(false, null, "Invalid email or password"));
       }
 
-      // password_hash format: scrypt$<salt>$<derived>
-      const [scheme, salt, derived] = profile.password_hash.split("$");
-      if (scheme !== "scrypt" || !salt || !derived) {
-        return res
-          .status(500)
-          .json(formatResponse(false, null, "Invalid password storage format"));
-      }
-
-      const crypto = require("crypto");
-      const computed = crypto.scryptSync(password, salt, 64).toString("hex");
-      if (computed !== derived) {
+      const isValidPassword = await verifyPassword(profile, password, profilesService);
+      if (!isValidPassword) {
         return res
           .status(401)
           .json(formatResponse(false, null, "Invalid email or password"));

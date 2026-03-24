@@ -14,7 +14,17 @@ class ProfilesService {
 
   async getProfileByEmail(email) {
     const profiles = await this.ensureConnected();
-    return profiles.findOne({ email: email.toLowerCase() }); // Case-insensitive search
+    const normalizedEmail = String(email || "").toLowerCase();
+
+    // If duplicate emails exist, prefer a profile with a password_hash so
+    // local login can succeed for accounts created through mixed scripts.
+    const withPassword = await profiles.findOne({
+      email: normalizedEmail,
+      password_hash: { $exists: true, $ne: null },
+    });
+    if (withPassword) return withPassword;
+
+    return profiles.findOne({ email: normalizedEmail });
   }
 
   async createProfile(userId, data = {}) {
