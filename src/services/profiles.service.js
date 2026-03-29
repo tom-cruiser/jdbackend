@@ -41,6 +41,11 @@ class ProfilesService {
       phone: data.phone || null,
       is_admin: data.is_admin || false,
       password_hash: data.password_hash || null,
+      email_confirmed: data.email_confirmed === true,
+      email_confirm_token_hash: data.email_confirm_token_hash || null,
+      email_confirm_expires_at: data.email_confirm_expires_at || null,
+      reset_password_token_hash: data.reset_password_token_hash || null,
+      reset_password_expires_at: data.reset_password_expires_at || null,
       created_at: new Date(),
       updated_at: new Date(),
     };
@@ -53,7 +58,16 @@ class ProfilesService {
     const profiles = await this.ensureConnected();
 
     // Allow updating a controlled set of fields
-    const allowed = ["full_name", "phone", "password_hash"];
+    const allowed = [
+      "full_name",
+      "phone",
+      "password_hash",
+      "email_confirmed",
+      "email_confirm_token_hash",
+      "email_confirm_expires_at",
+      "reset_password_token_hash",
+      "reset_password_expires_at",
+    ];
 
     const updateDoc = { updated_at: new Date() };
 
@@ -70,6 +84,16 @@ class ProfilesService {
     );
 
     return res.value;
+  }
+
+  async getProfileByEmailConfirmTokenHash(tokenHash) {
+    const profiles = await this.ensureConnected();
+    return profiles.findOne({ email_confirm_token_hash: tokenHash });
+  }
+
+  async getProfileByResetTokenHash(tokenHash) {
+    const profiles = await this.ensureConnected();
+    return profiles.findOne({ reset_password_token_hash: tokenHash });
   }
 
   async getAllProfiles(filters = {}, page = 1, limit = 10) {

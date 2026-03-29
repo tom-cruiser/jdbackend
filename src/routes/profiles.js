@@ -16,6 +16,11 @@ router.put(
   validate(schemas.profile),
   profilesController.updateMyProfile
 );
+router.put(
+  "/me/password",
+  validate(schemas.changePassword),
+  profilesController.changeMyPassword
+);
 
 // Admin routes
 router.get("/", adminMiddleware, profilesController.getAllProfiles);

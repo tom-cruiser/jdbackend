@@ -36,6 +36,12 @@ const schemas = {
     phone: Joi.string().max(20).allow("", null),
   }),
 
+  changePassword: Joi.object({
+    current_password: Joi.string().required(),
+    new_password: Joi.string().min(8).required(),
+    confirm_password: Joi.string().allow("", null),
+  }),
+
   court: Joi.object({
     name: Joi.string().min(1).max(100).required(),
     color: Joi.string()

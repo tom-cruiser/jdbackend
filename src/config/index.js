@@ -23,6 +23,15 @@ const config = {
   IMAGEKIT_PUBLIC_KEY: process.env.IMAGEKIT_PUBLIC_KEY,
   IMAGEKIT_PRIVATE_KEY: process.env.IMAGEKIT_PRIVATE_KEY,
   IMAGEKIT_URL_ENDPOINT: process.env.IMAGEKIT_URL_ENDPOINT,
+
+  // Frontend + email configuration
+  CLIENT_URL: process.env.CLIENT_URL || "http://localhost:5173",
+  FROM_EMAIL: process.env.FROM_EMAIL || "noreply@example.com",
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || "587", 10),
+  SMTP_SECURE: process.env.SMTP_SECURE === "true",
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASS: process.env.SMTP_PASS,
 };
 
 // Validate required environment variables
